@@ -13,3 +13,12 @@ def pairwise(iterable):
     a, b = tee(iterable)
     next(b, None)
     return izip(a, b)
+
+
+def create_path_identifier(from_ip, from_port, to_ip, to_port):
+    """
+    Create path identifier to use with flow-preference table
+
+    The identifier is just a tuple containing various information
+    """
+    return (from_ip, from_port, to_ip, to_port)

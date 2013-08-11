@@ -2,11 +2,12 @@
 from pox.core import core                     # Main POX object
 import pox.openflow.libopenflow_01 as of      # OpenFlow 1.0 library
 # import pox.lib.packet as pkt                  # Packet parsing/construction
-from pox.lib.addresses import EthAddr         # Address types
+# from pox.lib.addresses import EthAddr         # Address types
 # import pox.lib.revent as revent               # Event library
 # import pox.lib.recoco as recoco               # Multitasking library
 import networkx as nx
 import utils
+from path_preference_table import PathPreferenceTable
 
 
 class Overseer (object):
@@ -14,63 +15,32 @@ class Overseer (object):
   Overseer - POX Component Implementing Bandwith/Latency-aware OpenFlow Controller
   """
 
+  # LATENCY_WEIGHT_LABEL = "latency"
+  # BANDWIDTH_WEIGHT_LABEL = "inversed_bandwidth"
+
   _core_name = "overseer"  # We want to be core.overseer
 
-  def __init__ (self, flow_idle_timeout=60, flow_hard_timeout=180):
+  def __init__ (self, flow_idle_timeout=10, flow_hard_timeout=30,
+                default_latency=1, default_inversed_bandwidth=0.01):
     core.listen_to_dependencies(self)
 
     self.log = core.getLogger()
-    self.graph = nx.Graph()  # Use dpid as node
+    # self.path_preference_table = PathPreferenceTable.Instance()
+    self.path_preference_table = PathPreferenceTable()
     self.flow_idle_timeout = flow_idle_timeout
     self.flow_hard_timeout = flow_hard_timeout
+    self.default_latency = default_latency  # Milliseconds
+    self.default_inversed_bandwidth = default_inversed_bandwidth  # Megabits
+    self.path_preferences = dict()
 
-  def _handle_openflow_discovery_LinkEvent(self, event):
-    link = event.link
-    # Note that dpid might be Int or Long or perhaps something else entirely!
-    # We may need to care about their types if problems arise
-    switch1 = link.dpid1
-    switch2 = link.dpid2
-
-    if event.added:
-      self.log.info("Link Up: %s - %s" % (switch1, switch2))
-      self.graph.add_edge(switch1, switch2, portByDpid={
-        switch1: link.port1,
-        switch2: link.port2,
-      })
-    else:
-      self.log.info("Link Down: %s - %s" % (switch1, switch2))
-      # event.remove may be duplicated as links are two-way
-      try:
-        self.graph.remove_edge(switch1, switch2)
-      except nx.NetworkXError as e:
-        # Edge was already removed
-        self.log.info(e.message)
-
-      # Clear the entire flow table of all switches!
-      clear = of.ofp_flow_mod(command=of.OFPFC_DELETE)
-      for switch in self.graph.nodes():
-        self.graph.node[switch]["connection"].send(clear)
-
-      # Remove isolated node if any
-      # if nx.is_isolate(self.graph, switch1):
-      #   self.graph.remove_node(switch1)
-      # if nx.is_isolate(self.graph, switch2):
-      #   self.graph.remove_node(switch2)
-
-  def _handle_openflow_ConnectionUp(self, event):
-    self.graph.add_node(event.dpid, connection=event.connection)
-
-    # Clear the entire flow table of the switches!
-    event.connection.send(of.ofp_flow_mod(command=of.OFPFC_DELETE))
-
-  def _handle_openflow_ConnectionDown(self, event):
-    self.log.info("Connection Down: %s" % event.dpid)
-    self.graph.remove_node(event.dpid)
+  def _handle_overseer_topology_LinkUp(self, event):
+    graph = core.overseer_topology.graph
+    graph.edge[event.dpid1][event.dpid2][PathPreferenceTable.MAXIMUM_BANDWIDTH] = self.default_inversed_bandwidth
+    graph.edge[event.dpid1][event.dpid2][PathPreferenceTable.MINIMUM_LATENCY] = self.default_latency
+    graph.edge[event.dpid1][event.dpid2][PathPreferenceTable.DEFAULT] = 1
 
   def _handle_openflow_PacketIn(self, event):
-    """
-    TODO: Refactor this method
-    """
+    # TODO: Refactor this method
     packet = event.parsed
     source = packet.src
     destination = packet.dst
@@ -95,17 +65,18 @@ class Overseer (object):
     from_host = entryByMAC[source]
     to_host = entryByMAC[destination]
 
-    path = nx.shortest_path(self.graph, from_host.dpid, to_host.dpid)
+    path = self.get_shortest_path(from_host.dpid, to_host.dpid, packet)
     match = of.ofp_match.from_packet(packet)
     match.in_port = None
 
     self.log.info("Installing path from host %s to host %s" % (source, destination))
 
     # Install flows
+    # TODO: Handle buffer_id properly
     # first = True
     for from_switch, to_switch in utils.pairwise(path):
       self.log.info("Installing flow from switch %s to switch %s" % (from_switch, to_switch))
-      portByDpid = self.graph.get_edge_data(from_switch, to_switch)["portByDpid"]
+      portByDpid = core.overseer_topology.graph.get_edge_data(from_switch, to_switch)["portByDpid"]
       message = of.ofp_flow_mod()
       message.match = match
       message.idle_timeout = self.flow_idle_timeout
@@ -116,7 +87,7 @@ class Overseer (object):
         # message.buffer_id = event.ofp.buffer_id
         # first = False
 
-      self.graph.node[from_switch]['connection'].send(message)
+      core.overseer_topology.graph.node[from_switch]['connection'].send(message)
 
     # Install final flow
     self.log.info("Installing final flow from switch %s to host %s" % (path[-1], destination))
@@ -125,7 +96,39 @@ class Overseer (object):
     message.idle_timeout = self.flow_idle_timeout
     message.hard_timeout = self.flow_hard_timeout
     message.actions.append(of.ofp_action_output(port=to_host.port))
-    self.graph.node[path[-1]]['connection'].send(message)
+    core.overseer_topology.graph.node[path[-1]]['connection'].send(message)
+
+  def get_shortest_path(self, from_dpid, to_dpid, packet):
+    # TODO: Support IPv6
+
+    tcp_packet = packet.find("tcp")
+    udp_packet = packet.find("udp")
+    ip_packet = packet.find("ipv4")
+
+    if tcp_packet is not None:
+      path_identifier = PathPreferenceTable.create_path_identifier(
+        ip_packet.srcip, tcp_packet.srcport, ip_packet.dstip, tcp_packet.dstport
+      )
+    elif udp_packet is not None:
+      path_identifier = PathPreferenceTable.create_path_identifier(
+        ip_packet.srcip, udp_packet.srcport, ip_packet.dstip, udp_packet.dstport
+      )
+    elif ip_packet is not None:
+      path_identifier = PathPreferenceTable.create_path_identifier(
+        ip_packet.srcip, PathPreferenceTable.WILDCARD, ip_packet.dstip, PathPreferenceTable.WILDCARD
+      )
+    else:
+      path_identifier = PathPreferenceTable.create_path_identifier(
+        PathPreferenceTable.WILDCARD, PathPreferenceTable.WILDCARD, PathPreferenceTable.WILDCARD, PathPreferenceTable.WILDCARD
+      )
+
+    # self.log.info("tcp_packet: %s" % str(tcp_packet))
+    # self.log.info("udp_packet: %s" % str(udp_packet))
+    # self.log.info("ip_packet: %s" % str(ip_packet))
+    # self.log.info("icmp_packet: %s" % str(icmp_packet))
+    # self.log.info("PATH_IDENTIFIER: %s" % str(path_identifier))
+    preference = self.path_preference_table.match(path_identifier)
+    return nx.shortest_path(core.overseer_topology.graph, from_dpid, to_dpid, preference)
 
   def _handle_openflow_ErrorIn(self, event):
     # Log all OpenFlow errors

@@ -4,7 +4,7 @@ from pox.lib.revent import Event
 class LinkEvent (Event):
   """Abstrack class for LinkUp and LinkDown"""
   def __init__ (self, dpid1, dpid2):
-    super(LinkEvent, self).__init__(self)
+    super(LinkEvent, self).__init__()
     self.dpid1 = dpid1
     self.dpid2 = dpid2
 
@@ -22,7 +22,7 @@ class LinkDown (LinkEvent):
 class SwitchEvent (Event):
   """Abstract class for SwitchUp and SwitchDown"""
   def __init__ (self, dpid):
-    super(SwitchEvent, self).__init__(self)
+    super(SwitchEvent, self).__init__()
     self.dpid
 
 

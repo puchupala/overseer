@@ -20,12 +20,12 @@ class Topology (EventMixin):
 
   _core_name = "overseer_topology"  # We want to be core.overseer_topology
 
-  _eventMixin_events = [set([
+  _eventMixin_events = [
     events.LinkUp,
     events.LinkDown,
     events.SwitchUp,
     events.SwitchDown
-  ])]
+  ]
 
   def __init__ (self):
     core.listen_to_dependencies(self)
@@ -99,10 +99,11 @@ class Topology (EventMixin):
   def _handle_openflow_ConnectionUp (self, event):
     self.log.info("Connection Up: %s" % event.dpid)
     self.graph.add_node(event.dpid, connection=event.connection)
-    self.raiseEvent(events.SwitchUp, event.dpid)
 
     # Clear the entire flow table of the switches!
     event.connection.send(of.ofp_flow_mod(command=of.OFPFC_DELETE))
+
+    self.raiseEvent(events.SwitchUp, event.dpid)
 
   def _handle_openflow_ConnectionDown (self, event):
     self.log.info("Connection Down: %s" % event.dpid)

@@ -12,6 +12,8 @@ def launch ():
   pox.misc.gephi_topo.launch()
   import pox.host_tracker
   pox.host_tracker.launch()
+  import overseer.topology
+  overseer.topology.launch()
   import overseer.overseer
   overseer.overseer.launch()
   import pox.openflow.spanning_tree
