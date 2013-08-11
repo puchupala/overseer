@@ -34,3 +34,14 @@ class SwitchUp (SwitchEvent):
 class SwitchDown (SwitchEvent):
   """SwitchDown Event"""
   pass
+
+
+class Update (Event):
+  """
+  Fired by Topology whenever anything has changed
+
+  Modified from the one in topology component
+  """
+  def __init__ (self, event=None):
+    super(Update, self).__init__()
+    self.event = event

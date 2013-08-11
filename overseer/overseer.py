@@ -132,4 +132,8 @@ class Overseer (object):
 
   def _handle_openflow_ErrorIn(self, event):
     # Log all OpenFlow errors
-    self.log.error(event.asString())
+    self.log.error("OF:%s" % event.asString())
+
+  def _handle_overseer_topology_Update(self, event):
+    # TODO: Update all-pair shortest paths using Floyd-Warshall algorithm
+    pass

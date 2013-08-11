@@ -24,7 +24,8 @@ class Topology (EventMixin):
     events.LinkUp,
     events.LinkDown,
     events.SwitchUp,
-    events.SwitchDown
+    events.SwitchDown,
+    events.Update,
   ]
 
   def __init__ (self):
@@ -109,3 +110,15 @@ class Topology (EventMixin):
     self.log.info("Connection Down: %s" % event.dpid)
     self.graph.remove_node(event.dpid)
     self.raiseEvent(events.SwitchDown, event.dpid)
+
+  def raiseEvent (self, event, *args, **kw):
+    """
+    Whenever we raise any event, we also raise an Update, so we extend
+    the implementation in EventMixin.
+
+    Modified from the one in topology component
+    """
+    rv = super(Topology, self).raiseEvent(event, *args, **kw)
+    if type(event) is not events.Update:
+      super(Topology, self).raiseEvent(events.Update, event)
+    return rv
