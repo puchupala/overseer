@@ -3,6 +3,11 @@ Overseer
 
 Collection of POX component for implementing Bandwidth/Latency-aware OpenFlow Controller
 
+Requirements
+------------
+
+* NetworkX
+
 Components
 ----------
 

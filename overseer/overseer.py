@@ -8,6 +8,7 @@ import pox.openflow.libopenflow_01 as of      # OpenFlow 1.0 library
 import networkx as nx
 import utils
 from path_preference_table import PathPreferenceTable
+from mst import maximum_spanning_tree
 
 
 class Overseer (object):
@@ -21,7 +22,7 @@ class Overseer (object):
   _core_name = "overseer"  # We want to be core.overseer
 
   def __init__ (self, flow_idle_timeout=10, flow_hard_timeout=30,
-                default_latency=1, default_inversed_bandwidth=0.01):
+                default_latency=1, default_bandwidth=100):
     core.listen_to_dependencies(self)
 
     self.log = core.getLogger()
@@ -30,12 +31,12 @@ class Overseer (object):
     self.flow_idle_timeout = flow_idle_timeout
     self.flow_hard_timeout = flow_hard_timeout
     self.default_latency = default_latency  # Milliseconds
-    self.default_inversed_bandwidth = default_inversed_bandwidth  # Megabits
+    self.default_bandwidth = default_bandwidth  # Megabits
     self.path_preferences = dict()
 
   def _handle_overseer_topology_LinkUp(self, event):
     graph = core.overseer_topology.graph
-    graph.edge[event.dpid1][event.dpid2][PathPreferenceTable.MAXIMUM_BANDWIDTH] = self.default_inversed_bandwidth
+    graph.edge[event.dpid1][event.dpid2][PathPreferenceTable.MAXIMUM_BANDWIDTH] = self.default_bandwidth
     graph.edge[event.dpid1][event.dpid2][PathPreferenceTable.MINIMUM_LATENCY] = self.default_latency
     graph.edge[event.dpid1][event.dpid2][PathPreferenceTable.DEFAULT] = 1
 
@@ -65,7 +66,7 @@ class Overseer (object):
     from_host = entryByMAC[source]
     to_host = entryByMAC[destination]
 
-    path = self.get_shortest_path(from_host.dpid, to_host.dpid, packet)
+    path = self.get_path(from_host.dpid, to_host.dpid, packet)
     match = of.ofp_match.from_packet(packet)
     match.in_port = None
 
@@ -98,7 +99,7 @@ class Overseer (object):
     message.actions.append(of.ofp_action_output(port=to_host.port))
     core.overseer_topology.graph.node[path[-1]]['connection'].send(message)
 
-  def get_shortest_path(self, from_dpid, to_dpid, packet):
+  def get_path(self, from_dpid, to_dpid, packet):
     # TODO: Support IPv6
 
     tcp_packet = packet.find("tcp")
@@ -122,13 +123,12 @@ class Overseer (object):
         PathPreferenceTable.WILDCARD, PathPreferenceTable.WILDCARD, PathPreferenceTable.WILDCARD, PathPreferenceTable.WILDCARD
       )
 
-    # self.log.info("tcp_packet: %s" % str(tcp_packet))
-    # self.log.info("udp_packet: %s" % str(udp_packet))
-    # self.log.info("ip_packet: %s" % str(ip_packet))
-    # self.log.info("icmp_packet: %s" % str(icmp_packet))
-    # self.log.info("PATH_IDENTIFIER: %s" % str(path_identifier))
     preference = self.path_preference_table.match(path_identifier)
-    return nx.shortest_path(core.overseer_topology.graph, from_dpid, to_dpid, preference)
+    if preference is PathPreferenceTable.MAXIMUM_BANDWIDTH:
+      graph = maximum_spanning_tree(core.overseer_topology.graph, PathPreferenceTable.MAXIMUM_BANDWIDTH)
+      return nx.shortest_path(graph, from_dpid, to_dpid, preference)
+    else:
+      return nx.shortest_path(core.overseer_topology.graph, from_dpid, to_dpid, preference)
 
   def _handle_openflow_ErrorIn(self, event):
     # Log all OpenFlow errors
