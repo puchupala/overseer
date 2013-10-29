@@ -75,3 +75,23 @@ class ApiHandler (JSONRPCHandler):
       return utils.create_response("")
     except KeyError:
       return make_error("No such entry in path preference table")
+
+  def _exec_update_bandwidth(self, dpid1, dpid2, bandwidth):
+    return self._update_weight(dpid1, dpid2, ApiHandler.OPTIONS["maximum_bandwidth"], bandwidth)
+
+  def _exec_update_latency(self, dpid1, dpid2, latency):
+    return self._update_weight(dpid1, dpid2, ApiHandler.OPTIONS["minimum_latency"], latency)
+
+  def _update_weight(self, dpid1, dpid2, weight="weight", value="1"):
+    try:
+      graph = core.overseer_topology.graph
+      dpid1 = int(dpid1)
+      dpid2 = int(dpid2)
+      value = int(value)
+      if graph.has_edge(dpid1, dpid2):
+        graph[dpid1][dpid2][weight] = value
+        return utils.create_response("")
+      else:
+        return make_error("Invalid link")
+    except ValueError:
+      return make_error("dpid and value must be int")

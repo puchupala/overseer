@@ -32,7 +32,7 @@ class Topology (EventMixin):
     core.listen_to_dependencies(self)
 
     self.log = core.getLogger()
-    self.graph = nx.Graph()  # Use dpid as node
+    self.graph = nx.DiGraph()  # Use dpid as node
 
   def _handle_openflow_discovery_LinkEvent (self, event):
     # added/removed may be duplicated as links are two-way
@@ -56,15 +56,26 @@ class Topology (EventMixin):
     dpid1 = link.dpid1
     dpid2 = link.dpid2
 
-    if self.graph.has_edge(dpid1, dpid2):
-      return  # Duplicated edge
+    if self.graph.has_edge(dpid1, dpid2) and self.graph.has_edge(dpid2, dpid1):
+      # Duplicated event
+      return
+
+    # dpid1 -> dpid2
+    if not self.graph.has_edge(dpid1, dpid2):
+      self.graph.add_edge(dpid1, dpid2, portByDpid={
+        dpid1: link.port1,
+        dpid2: link.port2,
+      })
+
+    # dpid2 -> dpid1
+    if not self.graph.has_edge(dpid2, dpid1):
+      self.graph.add_edge(dpid2, dpid1, portByDpid={
+        dpid2: link.port2,
+        dpid1: link.port1,
+      })
 
     self.log.info("Link Up: %s - %s" % (dpid1, dpid2))
-    self.graph.add_edge(dpid1, dpid2, portByDpid={
-      dpid1: link.port1,
-      dpid2: link.port2,
-    })
-    self.raiseEvent(events.LinkUp, dpid1, dpid2)
+    self.raiseEvent(events.LinkUp, dpid2, dpid1)
 
   def __handle_openflow_discovery_LinkDown (self, event):
     """
@@ -82,8 +93,16 @@ class Topology (EventMixin):
     dpid2 = link.dpid2
 
     self.log.info("Link Down: %s - %s" % (dpid1, dpid2))
+
     try:
-      self.graph.remove_edge(dpid1, dpid1)
+      self.graph.remove_edge(dpid1, dpid2)
+    except nx.NetworkXError as e:
+      # Edge was already removed
+      self.log.info(e.message)
+      return
+
+    try:
+      self.graph.remove_edge(dpid2, dpid1)
     except nx.NetworkXError as e:
       # Edge was already removed
       self.log.info(e.message)

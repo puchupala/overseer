@@ -36,9 +36,16 @@ class Overseer (object):
 
   def _handle_overseer_topology_LinkUp(self, event):
     graph = core.overseer_topology.graph
+
+    # dpid1 -> dpid2
     graph.edge[event.dpid1][event.dpid2][PathPreferenceTable.MAXIMUM_BANDWIDTH] = self.default_bandwidth
     graph.edge[event.dpid1][event.dpid2][PathPreferenceTable.MINIMUM_LATENCY] = self.default_latency
     graph.edge[event.dpid1][event.dpid2][PathPreferenceTable.DEFAULT] = 1
+
+    # dpid2 -> dpid1
+    graph.edge[event.dpid2][event.dpid1][PathPreferenceTable.MAXIMUM_BANDWIDTH] = self.default_bandwidth
+    graph.edge[event.dpid2][event.dpid1][PathPreferenceTable.MINIMUM_LATENCY] = self.default_latency
+    graph.edge[event.dpid2][event.dpid1][PathPreferenceTable.DEFAULT] = 1
 
   def _handle_openflow_PacketIn(self, event):
     # TODO: Refactor this method
@@ -125,8 +132,11 @@ class Overseer (object):
 
     preference = self.path_preference_table.match(path_identifier)
     if preference is PathPreferenceTable.MAXIMUM_BANDWIDTH:
-      graph = maximum_spanning_tree(core.overseer_topology.graph, PathPreferenceTable.MAXIMUM_BANDWIDTH)
-      return nx.shortest_path(graph, from_dpid, to_dpid, preference)
+      # Interim solution: use path on maximum spanning tree for max bw path
+      # graph = maximum_spanning_tree(core.overseer_topology.graph, PathPreferenceTable.MAXIMUM_BANDWIDTH)
+      # return nx.shortest_path(graph, from_dpid, to_dpid, preference)
+      from weighted import dijkstra_path as maximin_path
+      return maximin_path(core.overseer_topology.graph, from_dpid, to_dpid, preference)
     else:
       return nx.shortest_path(core.overseer_topology.graph, from_dpid, to_dpid, preference)
 
