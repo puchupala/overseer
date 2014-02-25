@@ -57,7 +57,9 @@ class Overseer (object):
       # Flood the packet
       # TODO: Install new flow instead of crafting new packet (hold down?)
       message = of.ofp_packet_out()
-      message.actions.append(of.ofp_action_output(port=of.OFPP_FLOOD))
+      # Workaround some switch that set OpenFlow flood prevention by default
+      # message.actions.append(of.ofp_action_output(port=of.OFPP_FLOOD))
+      message.actions.append(of.ofp_action_output(port=of.OFPP_ALL))
       message.data = event.ofp
       message.in_port = event.port
       event.connection.send(message)
