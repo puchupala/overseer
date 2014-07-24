@@ -14,10 +14,10 @@ def launch ():
   pox.host_tracker.launch()
   import overseer.topology
   overseer.topology.launch()
-  import overseer.overseer
-  overseer.overseer.launch()
   import pox.openflow.spanning_tree
   pox.openflow.spanning_tree.launch(no_flood=True, hold_down=True)
+  import overseer.overseer
+  overseer.overseer.launch()
   import pox.web.webcore
   pox.web.webcore.launch()
   import overseer.api

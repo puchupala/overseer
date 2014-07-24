@@ -21,7 +21,7 @@ class Overseer (object):
 
   _core_name = "overseer"  # We want to be core.overseer
 
-  def __init__ (self, flow_idle_timeout=10, flow_hard_timeout=30,
+  def __init__(self, flow_idle_timeout=10, flow_hard_timeout=30,
                 default_latency=1, default_bandwidth=100):
     core.listen_to_dependencies(self)
 
@@ -57,10 +57,9 @@ class Overseer (object):
       # Flood the packet
       # TODO: Install new flow instead of crafting new packet (hold down?)
       message = of.ofp_packet_out()
-      # Workaround some switch that set OpenFlow flood prevention by default
-      # message.actions.append(of.ofp_action_output(port=of.OFPP_FLOOD))
-      message.actions.append(of.ofp_action_output(port=of.OFPP_ALL))
-      message.data = event.ofp
+      message.actions.append(of.ofp_action_output(port=of.OFPP_FLOOD))
+      message.buffer_id = event.ofp.buffer_id
+      # message.data = event.ofp
       message.in_port = event.port
       event.connection.send(message)
       return
