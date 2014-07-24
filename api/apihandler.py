@@ -85,13 +85,13 @@ class ApiHandler (JSONRPCHandler):
   def _update_weight(self, dpid1, dpid2, weight="weight", value="1"):
     try:
       graph = core.overseer_topology.graph
-      dpid1 = int(dpid1)
-      dpid2 = int(dpid2)
-      value = int(value)
+      dpid1 = int(dpid1, 16)
+      dpid2 = int(dpid2, 16)
+      value = float(value)
       if graph.has_edge(dpid1, dpid2):
         graph[dpid1][dpid2][weight] = value
         return utils.create_response("")
       else:
         return make_error("Invalid link")
     except ValueError:
-      return make_error("dpid and value must be int")
+      return make_error("dpid must be hex and value must be float")
