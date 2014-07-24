@@ -74,7 +74,7 @@ class Topology (EventMixin):
         dpid1: link.port1,
       })
 
-    self.log.info("Link Up: %s - %s" % (dpid1, dpid2))
+    self.log.info("Link Up: %x - %x" % (dpid1, dpid2))
     self.raiseEvent(events.LinkUp, dpid2, dpid1)
 
   def __handle_openflow_discovery_LinkDown (self, event):
@@ -92,7 +92,7 @@ class Topology (EventMixin):
     dpid1 = link.dpid1
     dpid2 = link.dpid2
 
-    self.log.info("Link Down: %s - %s" % (dpid1, dpid2))
+    self.log.info("Link Down: %x - %x" % (dpid1, dpid2))
 
     try:
       self.graph.remove_edge(dpid1, dpid2)
@@ -117,7 +117,7 @@ class Topology (EventMixin):
     self.raiseEvent(events.LinkDown, dpid1, dpid2)
 
   def _handle_openflow_ConnectionUp (self, event):
-    self.log.info("Connection Up: %s" % event.dpid)
+    self.log.info("Connection Up: %x" % event.dpid)
     self.graph.add_node(event.dpid, connection=event.connection)
 
     # Clear the entire flow table of the switches!
@@ -126,7 +126,7 @@ class Topology (EventMixin):
     self.raiseEvent(events.SwitchUp, event.dpid)
 
   def _handle_openflow_ConnectionDown (self, event):
-    self.log.info("Connection Down: %s" % event.dpid)
+    self.log.info("Connection Down: %x" % event.dpid)
     self.graph.remove_node(event.dpid)
     self.raiseEvent(events.SwitchDown, event.dpid)
 

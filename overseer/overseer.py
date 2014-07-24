@@ -84,7 +84,7 @@ class Overseer (object):
     # TODO: Handle buffer_id properly
     # first = True
     for from_switch, to_switch in utils.pairwise(path):
-      self.log.info("Installing flow from switch %s to switch %s" % (from_switch, to_switch))
+      self.log.info("Installing flow from switch %x to switch %x" % (from_switch, to_switch))
       portByDpid = core.overseer_topology.graph.get_edge_data(from_switch, to_switch)["portByDpid"]
       message = of.ofp_flow_mod()
       message.match = match
@@ -99,7 +99,7 @@ class Overseer (object):
       core.overseer_topology.graph.node[from_switch]['connection'].send(message)
 
     # Install final flow
-    self.log.info("Installing final flow from switch %s to host %s" % (path[-1], destination))
+    self.log.info("Installing final flow from switch %x to host %s" % (path[-1], destination))
     message = of.ofp_flow_mod()
     message.match = match
     message.idle_timeout = self.flow_idle_timeout
