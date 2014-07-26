@@ -3,7 +3,9 @@ Fires up overseer and related components
 """
 
 
-def launch ():
+def launch():
+  import samples.pretty_log
+  samples.pretty_log.launch()
   # import pox.openflow
   # pox.openflow.launch()
   import pox.openflow.discovery
