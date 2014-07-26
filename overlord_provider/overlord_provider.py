@@ -6,7 +6,7 @@ import requests
 # TODO: Daemonize this script
 
 
-def update_bandwidth(src, dest, bw):
+def update_bandwidth(src, dest, bw, dt):
     data = {
         "method": "update_bandwidth",
         "params": {
@@ -14,12 +14,13 @@ def update_bandwidth(src, dest, bw):
             "dpid2": SWITCHES[dest],
             "bandwidth": bw,
         },
+        "id": 1,
     }
-    print "%s %s => bw %f" % (src, dest, bw),
+    print "%s %s => bw %f [%s]" % (src, dest, bw, dt),
     print requests.post(OVERSEER_API_ENDPOINT, data=dumps(data)).json()
 
 
-def update_latency(src, dest, lat):
+def update_latency(src, dest, lat, dt):
     data = {
         "method": "update_latency",
         "params": {
@@ -27,8 +28,9 @@ def update_latency(src, dest, lat):
             "dpid2": SWITCHES[dest],
             "latency": lat,
         },
+        "id": 1,
     }
-    print "%s %s => bw %f" % (src, dest, lat),
+    print "%s %s => lat %f [%s]" % (src, dest, lat, dt),
     print requests.post(OVERSEER_API_ENDPOINT, data=dumps(data)).json()
 
 
@@ -36,6 +38,6 @@ if __name__ == "__main__":
     while(True):
         flows = requests.get(OVERLORD_API_ENDPOINT).json()["result"]
         for flow in flows:
-            update_bandwidth(flow["src"], flow["dest"], flow["iperf"]["bandwidth"])
-            update_latency(flow["src"], flow["dest"], flow["ping"]["avg"])
+            update_bandwidth(flow["src"], flow["dest"], flow["iperf"]["bandwidth"], flow["iperf"]["dt"])
+            update_latency(flow["src"], flow["dest"], flow["ping"]["avg"], flow["ping"]["dt"])
         sleep(DELAY)
