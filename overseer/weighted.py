@@ -295,18 +295,27 @@ def single_source_dijkstra(G, source, target=None, weight='weight'):
     --------
     single_source_dijkstra_path()
     single_source_dijkstra_path_length()
+
+    FIXME: Hardcoded max bandwidth
+    FIXME: Stored inversed bw in heapq and inverse before use
     """
+    MAX_BANDWIDTH = 99999.9
+
+    def inverse(value):
+        return MAX_BANDWIDTH - value
+
     if source == target:
         return ({source: 0}, {source: [source]})
     dist = {}  # dictionary of final distances
     paths = {source: [source]}  # dictionary of paths
     seen = {source: 0}
     fringe = []  # use heapq with (distance,label) tuples
-    heapq.heappush(fringe, (0, source))
+    heapq.heappush(fringe, (inverse(MAX_BANDWIDTH), source))
     while fringe:
-        # (d, v) = heapq.heappop(fringe)
-        (d, v) = fringe[-1]
-        fringe = fringe[:-1]
+        (d, v) = heapq.heappop(fringe)
+        d = inverse(d)
+        # (d, v) = fringe[-1]
+        # fringe = fringe[:-1]
         if v in dist:
             continue  # already searched this node.
         dist[v] = d
@@ -317,10 +326,10 @@ def single_source_dijkstra(G, source, target=None, weight='weight'):
         edata = iter(G[v].items())
 
         for w, edgedata in edata:
-            vw_dist = max(dist[v], edgedata.get(weight, 1))
+            vw_dist = min(dist[v], edgedata.get(weight, 1))
             if (w not in seen) or (vw_dist > seen[w]):
                 seen[w] = vw_dist
-                heapq.heappush(fringe, (vw_dist, w))
+                heapq.heappush(fringe, (inverse(vw_dist), w))
                 paths[w] = paths[v] + [w]
     return (dist, paths)
 
