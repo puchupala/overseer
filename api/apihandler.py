@@ -95,3 +95,11 @@ class ApiHandler (JSONRPCHandler):
         return make_error("Invalid link")
     except ValueError:
       return make_error("dpid must be hex and value must be float")
+
+  def _exec_get_edges(self):
+    return utils.create_response(core.overseer_topology.graph.edges())
+
+  def _exec_get_nodes(self):
+    nodes = core.overseer_topology.graph.nodes()
+    nodes = ["%x" % node for node in nodes]
+    return utils.create_response(nodes)

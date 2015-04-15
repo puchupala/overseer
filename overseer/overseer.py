@@ -21,7 +21,8 @@ class Overseer (object):
 
   _core_name = "overseer"  # We want to be core.overseer
 
-  def __init__(self, flow_idle_timeout=10, flow_hard_timeout=30,
+  # def __init__(self, flow_idle_timeout=10, flow_hard_timeout=30,
+  def __init__(self, flow_idle_timeout=30, flow_hard_timeout=60,
                 default_latency=1, default_bandwidth=100):
     core.listen_to_dependencies(self)
 
@@ -53,15 +54,30 @@ class Overseer (object):
     source = packet.src
     destination = packet.dst
 
+    # self.log.info("SRC: %s" % source)
+    # self.log.info("DST: %s" % destination)
+
     if destination.is_multicast:
+      # Note: pick between 2 flooding techniques here
       # Flood the packet
+      # ** Manual flooding **
       # TODO: Install new flow instead of crafting new packet (hold down?)
-      message = of.ofp_packet_out()
-      message.actions.append(of.ofp_action_output(port=of.OFPP_FLOOD))
-      message.buffer_id = event.ofp.buffer_id
-      # message.data = event.ofp
-      message.in_port = event.port
-      event.connection.send(message)
+      for mac, entry in core.host_tracker.entryByMAC.iteritems():
+        if source == mac:
+          continue
+        message = of.ofp_packet_out()
+        message.actions.append(of.ofp_action_output(port=entry.port))
+        message.data = event.data
+        # message.data = event.ofp
+        core.overseer_topology.graph.node[entry.dpid]['connection'].send(message)
+        self.log.debug("FLOODING: MAC %s is connected to switch %s at port %s" % (mac, entry.dpid, entry.port))
+      # ** Use OFPP_FLOOD **
+      # message = of.ofp_packet_out()
+      # message.actions.append(of.ofp_action_output(port=of.OFPP_FLOOD))
+      # message.buffer_id = event.ofp.buffer_id
+      # # message.data = event.ofp
+      # message.in_port = event.port
+      # event.connection.send(message)
       return
 
     entryByMAC = core.host_tracker.entryByMAC
@@ -69,7 +85,10 @@ class Overseer (object):
 
     if (source not in known_hosts) or (destination not in known_hosts):
       # Ignore non-end-to-end packet
+      self.log.info("There is no path from host %s to host %s" % (source, destination))
       return
+
+    self.log.info("Finding path from host %s to host %s" % (source, destination))
 
     from_host = entryByMAC[source]
     to_host = entryByMAC[destination]
@@ -91,6 +110,7 @@ class Overseer (object):
       message.idle_timeout = self.flow_idle_timeout
       message.hard_timeout = self.flow_hard_timeout
       message.actions.append(of.ofp_action_output(port=portByDpid[from_switch]))
+      # self.log.info("DEBUG: %s %d" % (type(portByDpid[from_switch]), portByDpid[from_switch]))
 
       # if first:
         # message.buffer_id = event.ofp.buffer_id

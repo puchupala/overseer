@@ -33,6 +33,7 @@ class Topology (EventMixin):
 
     self.log = core.getLogger()
     self.graph = nx.DiGraph()  # Use dpid as node
+    self.undirected_graph = nx.Graph()  # For minimum spanning tree
 
   def _handle_openflow_discovery_LinkEvent (self, event):
     # added/removed may be duplicated as links are two-way
@@ -74,6 +75,13 @@ class Topology (EventMixin):
         dpid1: link.port1,
       })
 
+    # Update undirected graph
+    if not self.undirected_graph.has_edge(dpid1, dpid2):
+      self.undirected_graph.add_edge(dpid1, dpid2, portByDpid={
+        dpid1: link.port1,
+        dpid2: link.port2,
+      })
+
     self.log.info("Link Up: %x - %x" % (dpid1, dpid2))
     self.raiseEvent(events.LinkUp, dpid2, dpid1)
 
@@ -108,6 +116,14 @@ class Topology (EventMixin):
       self.log.info(e.message)
       return
 
+    # Update undirected_graph
+    try:
+      self.undirected_graph.remove_edge(dpid1, dpid2)
+    except nx.NetworkXError as e:
+      # Edge was already removed
+      self.log.info(e.message)
+      return
+
     # Clear the entire flow table of all switches!
     clear = of.ofp_flow_mod(command=of.OFPFC_DELETE)
     for switch in self.graph.nodes():
@@ -119,6 +135,7 @@ class Topology (EventMixin):
   def _handle_openflow_ConnectionUp (self, event):
     self.log.info("Connection Up: %x" % event.dpid)
     self.graph.add_node(event.dpid, connection=event.connection)
+    self.undirected_graph.add_node(event.dpid, connection=event.connection)
 
     # Clear the entire flow table of the switches!
     event.connection.send(of.ofp_flow_mod(command=of.OFPFC_DELETE))
@@ -128,6 +145,7 @@ class Topology (EventMixin):
   def _handle_openflow_ConnectionDown (self, event):
     self.log.info("Connection Down: %x" % event.dpid)
     self.graph.remove_node(event.dpid)
+    self.undirected_graph.remove_node(event.dpid)
     self.raiseEvent(events.SwitchDown, event.dpid)
 
   def raiseEvent (self, event, *args, **kw):
