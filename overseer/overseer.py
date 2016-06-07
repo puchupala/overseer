@@ -96,6 +96,12 @@ class Overseer (object):
     path = self.get_path(from_host.dpid, to_host.dpid, packet)
     match = of.ofp_match.from_packet(packet)
     match.in_port = None
+    # match.dl_src = None
+    # match.dl_dst = None
+    #match.dl_vlan = None
+    #match.dl_vlan_pcp = None
+    # match.nw_proto = None
+    #match.nw_tos = None
 
     self.log.info("Installing path from host %s to host %s" % (source, destination))
 
@@ -152,6 +158,9 @@ class Overseer (object):
       )
 
     preference = self.path_preference_table.match(path_identifier)
+
+    self.log.info("Path Identifier: %s %s %s %s" % path_identifier)
+    self.log.info("Preference: %x" % preference)
     if preference is PathPreferenceTable.MAXIMUM_BANDWIDTH:
       # Interim solution: use path on maximum spanning tree for max bw path
       # graph = maximum_spanning_tree(core.overseer_topology.graph, PathPreferenceTable.MAXIMUM_BANDWIDTH)

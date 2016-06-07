@@ -1,4 +1,4 @@
-from overseer.overseer.utils import create_path_identifier
+#from overseer.overseer.utils import create_path_identifier
 from overseer.overseer.path_preference_table import PathPreferenceTable
 
 
@@ -18,4 +18,5 @@ def serialize_path_identifier(path_identifier):
 def deserialize_path_identifier(quintet):
     # Convert any "*" to PathPreferenceTable.WILDCARD
     quintet = [PathPreferenceTable.WILDCARD if field == "*" else field for field in quintet]
-    return create_path_identifier(quintet[0], quintet[1], quintet[2], quintet[3])
+    return PathPreferenceTable.create_path_identifier(quintet[0], quintet[1], quintet[2], quintet[3])
+

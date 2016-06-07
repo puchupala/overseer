@@ -1,3 +1,5 @@
+from pox.lib.addresses import IPAddr
+
 class PathPreferenceTable(object):
   # TODO: More comprehensive table implementation
 
@@ -26,28 +28,28 @@ class PathPreferenceTable(object):
       return self._table[path_identifier]
     except KeyError:
       try:  # IP + dest port
-        path_identifier = PathPreferenceTable.create_path_identifier(
+        new_path_identifier = PathPreferenceTable.create_path_identifier(
           path_identifier[0], PathPreferenceTable.WILDCARD, path_identifier[2], path_identifier[3]
         )
-        return self._table[path_identifier]
+        return self._table[new_path_identifier]
       except KeyError:
         try:  # IP + src port
-          path_identifier = PathPreferenceTable.create_path_identifier(
+          new_path_identifier = PathPreferenceTable.create_path_identifier(
             path_identifier[0], path_identifier[1], path_identifier[2], PathPreferenceTable.WILDCARD
           )
-          return self._table[path_identifier]
+          return self._table[new_path_identifier]
         except KeyError:
           try:  # IP-only
-            path_identifier = PathPreferenceTable.create_path_identifier(
+            new_path_identifier = PathPreferenceTable.create_path_identifier(
               path_identifier[0], PathPreferenceTable.WILDCARD, path_identifier[2], PathPreferenceTable.WILDCARD
             )
-            return self._table[path_identifier]
+            return self._table[new_path_identifier]
           except KeyError:
             try:  # User-defined default
-              path_identifier = PathPreferenceTable.create_path_identifier(
+              new_path_identifier = PathPreferenceTable.create_path_identifier(
                 PathPreferenceTable.WILDCARD, PathPreferenceTable.WILDCARD, PathPreferenceTable.WILDCARD, PathPreferenceTable.WILDCARD
               )
-              return self._table[path_identifier]
+              return self._table[new_path_identifier]
             except KeyError:
               return PathPreferenceTable.DEFAULT
 
@@ -70,4 +72,11 @@ class PathPreferenceTable(object):
 
     The identifier is just a tuple containing various information
     """
+    if (from_ip is not PathPreferenceTable.WILDCARD) and (not isinstance(from_ip, IPAddr)):
+        from_ip = IPAddr(from_ip)
+    if (to_ip is not PathPreferenceTable.WILDCARD) and (not isinstance(to_ip, IPAddr)):
+        to_ip = IPAddr(to_ip)
+    from_port = int(from_port)
+    to_port = int(to_port)
     return (from_ip, from_port, to_ip, to_port)
+
